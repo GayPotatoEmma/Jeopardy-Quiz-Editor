@@ -9,3 +9,5 @@ Simple editor to make custom Jeopardy games to play with your friends.
   - This supports both JeopardyLabs quizzes aswell as quizzes generate from this editor.
 - Question hints
   - Optional feature that lets you add hints to your questions which players can opt to reveal with the penalty of only rewarding half the points if they guess after this.
+- Choose any amount of categories ranging between 1 and 10
+  - Note that higher category amounts may end up looking cramped.  
