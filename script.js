@@ -3,26 +3,93 @@
 // ---------------------------------------------------------
 
 const ROWS = [100, 200, 300, 400, 500];
-const COLS = 5;
+let currentCols = 5;
 let quizData = {};
+let categoryNames = [];
 
-// Initialize with empty data
+// Initialize with default data
 function initData() {
+    // Fill initial categories
+    for(let i=0; i<currentCols; i++) {
+        categoryNames.push(`Category ${i+1}`);
+    }
+    ensureDataExists();
+    renderAll();
+}
+
+function ensureDataExists() {
     for(let r=0; r<ROWS.length; r++) {
-        for(let c=0; c<COLS; c++) {
+        for(let c=0; c<currentCols; c++) {
             const id = `${r}-${c}`;
-            quizData[id] = {
-                points: ROWS[r],
-                prompt: "",
-                response: "",
-                hint: "",
-                audio: false,
-                image: false,
-                imageExt: "jpg"
-            };
+            if (!quizData[id]) {
+                quizData[id] = {
+                    points: ROWS[r],
+                    prompt: "",
+                    response: "",
+                    hint: "",
+                    audio: false,
+                    image: false,
+                    imageExt: "jpg"
+                };
+            }
         }
     }
+}
+
+function renderAll() {
+    document.getElementById('colCountDisplay').innerText = currentCols;
+    renderCategoryInputs();
     renderGrid();
+}
+
+// ---------------------------------------------------------
+// DYNAMIC COLUMN LOGIC
+// ---------------------------------------------------------
+
+function adjustCols(delta) {
+    const newCount = currentCols + delta;
+    if (newCount < 1 || newCount > 10) return; // Hard limit 1-10 for UI sanity
+
+    // Save current category names from inputs before rebuilding
+    saveCategoryNames();
+
+    if (delta > 0) {
+        // Adding
+        categoryNames.push(`Category ${newCount}`);
+    } else {
+        // Removing - remove last category name
+        categoryNames.pop();
+    }
+
+    currentCols = newCount;
+    ensureDataExists();
+    renderAll();
+}
+
+function saveCategoryNames() {
+    const inputs = document.querySelectorAll('.cat-input');
+    inputs.forEach((input, index) => {
+        if (index < categoryNames.length) {
+            categoryNames[index] = input.value;
+        }
+    });
+}
+
+function renderCategoryInputs() {
+    const container = document.getElementById('categoriesRow');
+    container.innerHTML = '';
+    
+    // Set Grid Style
+    container.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
+
+    for(let i=0; i<currentCols; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'cat-input';
+        input.value = categoryNames[i] || `Category ${i+1}`;
+        input.onchange = saveCategoryNames; // Auto save on change
+        container.appendChild(input);
+    }
 }
 
 function renderGrid() {
@@ -34,23 +101,23 @@ function renderGrid() {
     ROWS.forEach((points, rIndex) => {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'grid-row';
+        rowDiv.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
         
-        for(let c=0; c<COLS; c++) {
+        for(let c=0; c<currentCols; c++) {
             const id = `${rIndex}-${c}`;
             const cellData = quizData[id];
             const cell = document.createElement('div');
             cell.className = 'grid-cell';
             
             // Mark as edited if response is filled
-            if(cellData.response) cell.classList.add('edited');
+            if(cellData && cellData.response) cell.classList.add('edited');
 
             let icons = "";
-            if(cellData.audio) icons += "♫ ";
-            if(cellData.image) icons += "🖼 ";
+            if(cellData && cellData.audio) icons += "♫ ";
+            if(cellData && cellData.image) icons += "🖼 ";
 
-            // Status Text logic
             let statusText = "Empty";
-            if (cellData.response) statusText = "Ready";
+            if (cellData && cellData.response) statusText = "Ready";
 
             cell.innerHTML = `
                 <div class="points-label">${points}</div>
@@ -138,43 +205,22 @@ function saveCell() {
 // ---------------------------------------------------------
 // HELPER: Multi-line Text Parser
 // ---------------------------------------------------------
-
-/**
- * Extracts text from a DOM container, handling both:
- * 1. Multiple <p> tags (Legacy/JeopardyLabs style)
- * 2. Single <p> with <br> tags (Editor style)
- */
 function parseComplexHTML(container) {
     if(!container) return "";
     
-    // Check if we have multiple P tags (The "Merry Quizmas" file style)
     const pTags = container.querySelectorAll('p');
-    
     if(pTags.length > 1) {
-        // Collect text from all paragraphs and join with newlines
-        return Array.from(pTags)
-            .map(p => p.textContent.trim())
-            .join('\n');
+        return Array.from(pTags).map(p => p.textContent.trim()).join('\n');
     }
     
-    // Otherwise, handle standard HTML (strip tags, convert BR to newline)
     let html = container.innerHTML;
-    
-    // Replace <br> with newlines
     html = html.replace(/<br\s*\/?>/gi, '\n');
-    
-    // Also replace closing </p> with newlines just in case of weird nesting
     html = html.replace(/<\/p>/gi, '\n');
-    
-    // Use a temp element to strip remaining tags and decode entities
     const temp = document.createElement("div");
     temp.innerHTML = html;
     return temp.textContent.trim();
 }
 
-/**
- * Formats newline characters into <br> tags for HTML output
- */
 function formatTextForExport(text) {
     if (!text) return "";
     return text.replace(/\n/g, "<br>");
@@ -195,7 +241,7 @@ function importQuiz(input) {
                 const titleEl = doc.querySelector('title');
                 if(titleEl) document.getElementById('quizTitle').value = titleEl.innerText;
 
-                // 2. Global Hints Settings
+                // 2. Global Hints
                 const scripts = doc.querySelectorAll('head script');
                 let foundHintSetting = false;
                 scripts.forEach(s => {
@@ -208,14 +254,18 @@ function importQuiz(input) {
                         foundHintSetting = true;
                     }
                 });
-                // Default to true if not found (older quizzes)
                 if(!foundHintSetting) document.getElementById('globalHintsToggle').checked = true;
 
-                // 3. Categories
-                const catInputs = document.querySelectorAll('.cat-input');
+                // 3. Detect Categories & Update Column Count
                 const catCells = doc.querySelectorAll('.grid-row-cats .cat-cell');
-                catCells.forEach((cell, index) => {
-                    if(catInputs[index]) catInputs[index].value = cell.innerText;
+                
+                // RESET DATA
+                quizData = {}; 
+                categoryNames = [];
+                currentCols = catCells.length;
+
+                catCells.forEach((cell) => {
+                    categoryNames.push(cell.innerText);
                 });
 
                 // 4. Grid Data
@@ -226,13 +276,10 @@ function importQuiz(input) {
                     const c = parseInt(group.getAttribute('data-col'));
                     const id = `${r}-${c}`;
 
-                    // --- KEY CHANGE: TARGET THE CONTAINER, NOT THE <P> ---
-                    // We grab .front and .back containers instead of specific p tags
                     const promptContainer = group.querySelector('.front');
                     const responseContainer = group.querySelector('.back');
                     const hintEl = group.querySelector('.hint-data');
                     
-                    // Use the new parser
                     const prompt = parseComplexHTML(promptContainer);
                     const response = parseComplexHTML(responseContainer);
                     const hint = hintEl ? hintEl.innerText : "";
@@ -244,25 +291,24 @@ function importQuiz(input) {
                     const image = imageAttr === "true";
                     const imageExt = group.getAttribute('data-image-ext') || 'jpg';
 
-                    if(quizData[id]) {
-                        quizData[id] = {
-                            points: ROWS[r],
-                            prompt: prompt,
-                            response: response,
-                            hint: hint,
-                            audio: audio,
-                            image: image,
-                            imageExt: imageExt
-                        };
-                    }
+                    quizData[id] = {
+                        points: ROWS[r],
+                        prompt: prompt,
+                        response: response,
+                        hint: hint,
+                        audio: audio,
+                        image: image,
+                        imageExt: imageExt
+                    };
                 });
 
-                renderGrid();
+                ensureDataExists(); // Fill in blanks if any
+                renderAll();
                 alert("Import successful!");
 
             } catch (err) {
                 console.error(err);
-                alert("Error parsing file. Ensure it is a valid HTML file.");
+                alert("Error parsing file.");
             }
         };
         reader.readAsText(input.files[0]);
@@ -274,15 +320,13 @@ function importQuiz(input) {
 // EXPORT LOGIC
 // ---------------------------------------------------------
 function exportQuiz() {
+    saveCategoryNames(); // Ensure current inputs are saved
     const title = document.getElementById('quizTitle').value;
     const hintsEnabled = document.getElementById('globalHintsToggle').checked;
     
-    const catInputs = document.querySelectorAll('.cat-input');
-    const categories = Array.from(catInputs).map(input => input.value);
-
     let gridHTML = `
         <div class="grid-row grid-row-cats" role="row">
-            ${categories.map(cat => `
+            ${categoryNames.map(cat => `
                 <div class="grid-cell"><div class="cell"><div class="cell-inner cat-cell" role="columnheader">${cat}</div></div></div>
             `).join('')}
         </div>
@@ -294,13 +338,12 @@ function exportQuiz() {
         
         gridHTML += `<div class="grid-row grid-row-questions ${isFirst} ${isLast}" role="row">`;
         
-        for(let c=0; c<COLS; c++) {
+        for(let c=0; c<currentCols; c++) {
             const id = `${r}-${c}`;
             const data = quizData[id];
             const uniqueId = `cell-${r}${c}-${Math.floor(Math.random()*10000)}`;
-            const catName = categories[c].replace(/"/g, '&quot;');
+            const catName = (categoryNames[c] || "").replace(/"/g, '&quot;');
 
-            // Convert newlines to <br> for export
             const promptHTML = formatTextForExport(data.prompt);
             const responseHTML = formatTextForExport(data.response);
 

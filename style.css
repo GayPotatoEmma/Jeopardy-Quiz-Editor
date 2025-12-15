@@ -50,6 +50,55 @@ header {
     align-items: center;
 }
 
+/* --- STEPPER CONTROL (FIXED) --- */
+.stepper {
+    display: flex;
+    align-items: center;
+    width: fit-content; /* Prevents background from stretching to the right */
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden; /* Keeps corners rounded */
+}
+
+.stepper button {
+    width: 40px;
+    height: 38px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 0; /* Remove individual button radius */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stepper button:hover {
+    background: var(--accent);
+}
+
+.stepper button:active {
+    background: #4f46e5;
+}
+
+.stepper span {
+    font-weight: bold;
+    min-width: 40px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2); /* Slight darken for the number area */
+}
+/* ------------------------------- */
+
 .controls {
     display: flex;
     gap: 10px;
@@ -87,6 +136,11 @@ button {
     transition: opacity 0.2s;
 }
 
+button.small-btn {
+    padding: 5px 10px;
+    font-size: 1rem;
+}
+
 button:hover { opacity: 0.9; }
 button.secondary { background: #475569; }
 button.import-btn { background: #0f766e; }
@@ -102,7 +156,7 @@ button.import-btn { background: #0f766e; }
 
 .cat-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* Columns set by JS */
     gap: 10px;
     margin-bottom: 10px;
 }
@@ -123,7 +177,7 @@ button.import-btn { background: #0f766e; }
 
 .grid-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* Columns set by JS */
     gap: 10px;
     flex: 1;
 }
